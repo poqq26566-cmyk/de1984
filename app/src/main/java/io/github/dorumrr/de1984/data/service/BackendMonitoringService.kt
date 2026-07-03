@@ -197,6 +197,7 @@ class BackendMonitoringService : Service() {
             (activeBackend == FirewallBackendType.VPN || activeBackend == null)
 
         AppLogger.d(TAG, "shouldContinueMonitoring: mode=$currentMode, backend=$activeBackend, result=$shouldContinue")
+        return shouldContinue
     }
 
     private fun startTimeoutTimer() {

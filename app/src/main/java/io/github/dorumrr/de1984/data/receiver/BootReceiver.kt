@@ -216,9 +216,35 @@ class BootReceiver : BroadcastReceiver() {
                             }.onFailure { error ->
                                 AppLogger.e(TAG, "❌ FAILED TO RESTORE FIREWALL | Trigger: $trigger | Error: ${error.message}")
 
-                                // Show notification asking user to open app
-                                // (VPN permission likely needs to be re-granted)
-                                showBootFailureNotification(context)
+                                val pinnedMode = firewallManager.getCurrentMode()
+                                val needsShizukuSafetyNet = pinnedMode == FirewallMode.CONNECTIVITY_MANAGER ||
+                                    pinnedMode == FirewallMode.NETWORK_POLICY_MANAGER
+
+                                if (needsShizukuSafetyNet) {
+                                    AppLogger.w(TAG, "Pinned mode $pinnedMode failed to start - trying VPN as a temporary safety net")
+                                    val vpnResult = firewallManager.startFirewall(FirewallMode.VPN)
+
+                                    vpnResult.onSuccess {
+                                        AppLogger.d(TAG, "✅ VPN safety net established - will auto-switch back to $pinnedMode once Shizuku is ready")
+
+                                        val shizukuStatus = shizukuManager.shizukuStatus.value
+                                        val monitorIntent = Intent(context, BackendMonitoringService::class.java).apply {
+                                            action = Constants.BackendMonitoring.ACTION_START
+                                            putExtra(Constants.BackendMonitoring.EXTRA_SHIZUKU_STATUS, shizukuStatus.name)
+                                        }
+                                        try {
+                                            context.startForegroundService(monitorIntent)
+                                            AppLogger.d(TAG, "Backend monitoring service started to watch for Shizuku readiness")
+                                        } catch (e: Exception) {
+                                            AppLogger.e(TAG, "Failed to start backend monitoring service", e)
+                                        }
+                                    }.onFailure { vpnError ->
+                                        AppLogger.e(TAG, "VPN safety net also failed: ${vpnError.message}")
+                                        showBootFailureNotification(context)
+                                    }
+                                } else {
+                                    showBootFailureNotification(context)
+                                }
                             }
                         } finally {
                             // Signal that async work is complete

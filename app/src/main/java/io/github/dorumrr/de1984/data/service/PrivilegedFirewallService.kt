@@ -158,19 +158,25 @@ class PrivilegedFirewallService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
--                AppLogger.w(TAG, "Unknown action or null intent - stopping self")
--                stopSelf()
--                return START_NOT_STICKY
-+                if (!wasExplicitlyStopped) {
-+                    // 从SharedPreferences读出之前的后端类型,自动用同一个后端恢复
-+                    val savedBackendType = ... // CONNECTIVITY_MANAGER / IPTABLES / NETWORK_POLICY_MANAGER
-+                    if (savedBackendType != null) {
-+                        startFirewall(savedBackendType)
-+                        return START_STICKY
-+                    }
-+                }
-+                stopSelf()
-+                return START_NOT_STICKY
+                if (!wasExplicitlyStopped) {
+                    val prefs = getSharedPreferences(Constants.Settings.PREFS_NAME, Context.MODE_PRIVATE)
+                    val savedBackendTypeStr = prefs.getString(Constants.Settings.KEY_PRIVILEGED_BACKEND_TYPE, null)
+                    val savedBackendType = when (savedBackendTypeStr) {
+                        "IPTABLES" -> FirewallBackendType.IPTABLES
+                        "CONNECTIVITY_MANAGER" -> FirewallBackendType.CONNECTIVITY_MANAGER
+                        "NETWORK_POLICY_MANAGER" -> FirewallBackendType.NETWORK_POLICY_MANAGER
+                        else -> null
+                    }
+
+                    if (savedBackendType != null) {
+                        AppLogger.w(TAG, "Null intent - system restarted the service, resuming $savedBackendType")
+                        startFirewall(savedBackendType)
+                        return START_STICKY
+                    }
+                    AppLogger.w(TAG, "Null intent but no saved backend type - cannot resume, stopping self")
+                }
+                stopSelf()
+                return START_NOT_STICKY
             }
         }
     }

@@ -158,9 +158,19 @@ class PrivilegedFirewallService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                AppLogger.w(TAG, "Unknown action or null intent - stopping self")
-                stopSelf()
-                return START_NOT_STICKY
+-                AppLogger.w(TAG, "Unknown action or null intent - stopping self")
+-                stopSelf()
+-                return START_NOT_STICKY
++                if (!wasExplicitlyStopped) {
++                    // 从SharedPreferences读出之前的后端类型,自动用同一个后端恢复
++                    val savedBackendType = ... // CONNECTIVITY_MANAGER / IPTABLES / NETWORK_POLICY_MANAGER
++                    if (savedBackendType != null) {
++                        startFirewall(savedBackendType)
++                        return START_STICKY
++                    }
++                }
++                stopSelf()
++                return START_NOT_STICKY
             }
         }
     }

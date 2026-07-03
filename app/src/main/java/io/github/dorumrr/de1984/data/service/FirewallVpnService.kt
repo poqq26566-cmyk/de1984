@@ -188,9 +188,19 @@ class FirewallVpnService : VpnService() {
             wasExplicitlyStopped = false
         }
 
-        stopVpn()
-        stopSelf()
-        super.onRevoke()
+-        stopVpn()
+-        stopSelf()
+-        super.onRevoke()
++        if (prepareIntent != null) {
++            // 被别的VPN抢占,不抢回来
++            stopVpn(); stopSelf()
++        } else {
++            // 飞行模式/网络抖动等临时情况,清理旧接口后立刻走已有的失败重试逻辑自动重连
++            vpnSetupJob?.cancel(); packetForwardingJob?.cancel()
++            vpnInterface?.close(); vpnInterface = null
++            if (isServiceActive) handleVpnInterfaceFailure()
++        }
++        super.onRevoke()
     }
 
     private fun isBatteryOptimizationDisabled(): Boolean {

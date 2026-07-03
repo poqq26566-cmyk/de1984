@@ -187,20 +187,22 @@ class FirewallVpnService : VpnService() {
             AppLogger.w(TAG, "VPN permission still available - will allow auto-restart when network restored")
             wasExplicitlyStopped = false
         }
+        if (prepareIntent != null) {
+            // 被别的VPN抢占,不抢回来
+            stopVpn()
+            stopSelf()
+        } else {
+            // 飞行模式/网络抖动等临时情况,清理旧接口后立刻走已有的失败重试逻辑自动重连
+            vpnSetupJob?.cancel()
+            packetForwardingJob?.cancel()
+            vpnInterface?.close()
+            vpnInterface = null
+            if (isServiceActive) {
+                handleVpnInterfaceFailure()
+            }
+        }
+        super.onRevoke()
 
--        stopVpn()
--        stopSelf()
--        super.onRevoke()
-+        if (prepareIntent != null) {
-+            // 被别的VPN抢占,不抢回来
-+            stopVpn(); stopSelf()
-+        } else {
-+            // 飞行模式/网络抖动等临时情况,清理旧接口后立刻走已有的失败重试逻辑自动重连
-+            vpnSetupJob?.cancel(); packetForwardingJob?.cancel()
-+            vpnInterface?.close(); vpnInterface = null
-+            if (isServiceActive) handleVpnInterfaceFailure()
-+        }
-+        super.onRevoke()
     }
 
     private fun isBatteryOptimizationDisabled(): Boolean {

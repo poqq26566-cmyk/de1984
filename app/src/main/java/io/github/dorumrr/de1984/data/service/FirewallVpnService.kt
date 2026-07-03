@@ -138,7 +138,13 @@ class FirewallVpnService : VpnService() {
                 return START_NOT_STICKY
             }
             else -> {
-                AppLogger.w(TAG, "Unknown action or null intent - stopping self")
+                // 系统杀进程后用空intent重启服务时,只要不是用户手动停止就自动恢复VPN
+                if (!wasExplicitlyStopped) {
+                    AppLogger.w(TAG, "Null intent - system restarted the service, resuming VPN")
+                    startVpn()
+                    return START_STICKY
+                }
+                AppLogger.d(TAG, "Null intent after explicit stop - staying stopped")
                 stopSelf()
                 return START_NOT_STICKY
             }

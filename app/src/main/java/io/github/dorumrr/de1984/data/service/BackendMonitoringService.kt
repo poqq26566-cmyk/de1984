@@ -188,15 +188,15 @@ class BackendMonitoringService : Service() {
         val currentMode = firewallManager.getCurrentMode()
         val activeBackend = firewallManager.activeBackendType.value
 
-        // Continue monitoring if:
-        // 1. Mode is AUTO (not manually selected VPN)
-        // 2. Backend is VPN (waiting for better backend) OR null (switching backends)
-        // Note: null backend means atomic switch in progress - don't stop during switch!
-        val shouldContinue = currentMode == FirewallMode.AUTO &&
+        val modeWantsPrivilegedBackend = currentMode == FirewallMode.AUTO ||
+            currentMode == FirewallMode.CONNECTIVITY_MANAGER ||
+            currentMode == FirewallMode.NETWORK_POLICY_MANAGER ||
+            currentMode == FirewallMode.IPTABLES
+
+        val shouldContinue = modeWantsPrivilegedBackend &&
             (activeBackend == FirewallBackendType.VPN || activeBackend == null)
 
         AppLogger.d(TAG, "shouldContinueMonitoring: mode=$currentMode, backend=$activeBackend, result=$shouldContinue")
-        return shouldContinue
     }
 
     private fun startTimeoutTimer() {
